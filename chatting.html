@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NeuroMind AI Chat</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        dark: {
+                            100: '#E5E7EB',
+                            200: '#D1D5DB',
+                            300: '#9CA3AF',
+                            400: '#6B7280',
+                            500: '#4B5563',
+                            600: '#374151',
+                            700: '#1F2937',
+                            800: '#111827',
+                            900: '#0F172A',
+                            950: '#020617'
+                        },
+                        primary: {
+                            light: '#7DD3FC',
+                            DEFAULT: '#0EA5E9',
+                            dark: '#0369A1'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #020617;
+            color: #E5E7EB;
+        }
+        
+        .message-container {
+            scrollbar-width: thin;
+            scrollbar-color: #374151 #111827;
+        }
+        
+        .message-container::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .message-container::-webkit-scrollbar-track {
+            background: #111827;
+        }
+        
+        .message-container::-webkit-scrollbar-thumb {
+            background-color: #374151;
+            border-radius: 3px;
+        }
+        
+        .model-response {
+            animation: fadeIn 0.3s ease-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .config-prompt {
+            background-color: rgba(14, 165, 233, 0.1);
+            border-left: 3px solid #0EA5E9;
+        }
+        
+        .toast {
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        
+        .prompt-details {
+            background-color: rgba(55, 65, 81, 0.5);
+            border-left: 3px solid #4B5563;
+        }
+        
+        .copy-btn {
+            transition: all 0.2s;
+        }
+        
+        .copy-btn:hover {
+            background-color: #374151;
+        }
+        
+        .copy-btn.copied {
+            background-color: #10B981;
+        }
+    </style>
+</head>
+<body class="bg-dark-950 text-dark-100 min-h-screen flex flex-col">
+    <!-- Main Chat Container -->
+    <div class="flex flex-col flex-1 max-w-6xl w-full mx-auto">
+        <!-- Header -->
+        <header class="py-4 px-6 border-b border-dark-800 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <div class="w-8 h-8 rounded-full bg-gradient-to-r from-primary-dark to-primary-light flex items-center justify-center">
+                    <i class="fas fa-brain text-white"></i>
+                </div>
+                <h1 class="text-xl font-bold">NeuroMind AI</h1>
+            </div>
+            <div class="flex items-center gap-4">
+                <button id="config-btn" class="text-dark-300 hover:text-primary-light transition-colors">
+                    <i class="fas fa-cog"></i>
+                </button>
+                <a href="orchestrator.html" class="text-sm text-primary-light hover:text-primary-dark flex items-center gap-1">
+                    <i class="fas fa-sliders-h"></i>
+                    <span>Edit Models</span>
+                </a>
+            </div>
+        </header>
+        
+        <!-- Config Notification -->
+        <div id="config-notification" class="hidden toast fixed top-4 right-4 bg-green-600 text-white px-4 py-2 rounded-md shadow-lg z-50">
+            <div class="flex items-center gap-2">
+                <i class="fas fa-check-circle"></i>
+                <span>Expert configuration loaded successfully!</span>
+            </div>
+        </div>
+        
+        <!-- Error Notification -->
+        <div id="error-notification" class="hidden toast fixed top-4 right-4 bg-red-600 text-white px-4 py-2 rounded-md shadow-lg z-50">
+            <div class="flex items-center gap-2">
+                <i class="fas fa-exclamation-circle"></i>
+                <span id="error-message"></span>
+            </div>
+        </div>
+        
+        <!-- Chat Messages Container -->
+        <div id="message-container" class="flex-1 overflow-y-auto message-container p-4 space-y-6">
+            <!-- Welcome Message -->
+            <div class="flex flex-col space-y-2">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-full bg-dark-700 flex items-center justify-center shrink-0">
+                        <i class="fas fa-robot text-primary-light"></i>
+                    </div>
+                    <div class="font-medium">NeuroMind AI</div>
+                </div>
+                <div class="pl-11">
+                    <div class="bg-dark-800 rounded-lg p-4 model-response">
+                        <p>Hello! I'm NeuroMind AI, your advanced reasoning assistant.</p>
+                        <p class="mt-2 text-sm text-dark-400" id="config-status">Loading configuration...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Input Area -->
+        <div class="px-4 pb-6">
+            <div class="relative">
+                <textarea id="prompt-input" rows="3" class="w-full bg-dark-800 border border-dark-700 rounded-lg pl-4 pr-12 py-3 resize-none" placeholder="Message NeuroMind AI..."></textarea>
+                <button id="send-btn" class="absolute right-3 bottom-3 w-8 h-8 rounded-md bg-primary-dark hover:bg-primary-darker flex items-center justify-center text-white">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Configuration Modal -->
+    <div id="config-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-dark-800 rounded-lg shadow-xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold">Current Configuration</h3>
+                <button id="close-config" class="text-dark-400 hover:text-white">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <div class="space-y-4">
+                <div>
+                    <h4 class="text-sm font-medium text-dark-300 mb-2">Expert Model Setup</h4>
+                    <div id="current-config" class="bg-dark-900 rounded-md p-3 text-sm whitespace-pre-wrap border border-dark-700">
+                        Loading configuration...
+                    </div>
+                </div>
+                
+                <div>
+                    <h4 class="text-sm font-medium text-dark-300 mb-2">Pipeline Type</h4>
+                    <div id="pipeline-type" class="text-sm">-</div>
+                </div>
+                
+                <div>
+                    <h4 class="text-sm font-medium text-dark-300 mb-2">Model Suggestions</h4>
+                    <div id="model-suggestions" class="text-sm">-</div>
+                </div>
+                
+                <div>
+                    <h4 class="text-sm font-medium text-dark-300 mb-2">Validation Status</h4>
+                    <div id="config-validation" class="text-sm">
+                        <span id="validation-status" class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-dark-700 text-dark-300">
+                            <i class="fas fa-circle-notch fa-spin mr-1"></i>
+                            Validating...
+                        </span>
+                        <div id="validation-errors" class="mt-1 text-xs text-red-400 hidden"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-6 pt-4 border-t border-dark-700">
+                <a href="orchestrator.html" class="w-full px-4 py-2 rounded-md bg-primary-dark hover:bg-primary-darker text-white text-center block">
+                    Edit Configuration
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Prompt Details Modal -->
+    <div id="prompt-details-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-dark-800 rounded-lg shadow-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold">Full Prompt Details</h3>
+                <button id="close-prompt-details" class="text-dark-400 hover:text-white">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <div class="space-y-4">
+                <div>
+                    <h4 class="text-sm font-medium text-dark-300 mb-2">System Message</h4>
+                    <div class="relative">
+                        <div id="system-prompt" class="bg-dark-900 rounded-md p-3 text-sm whitespace-pre-wrap border border-dark-700 max-h-60 overflow-y-auto"></div>
+                        <button id="copy-system-prompt" class="copy-btn absolute top-2 right-2 bg-dark-700 text-dark-200 p-1 rounded-md text-xs">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div>
+                    <h4 class="text-sm font-medium text-dark-300 mb-2">User Message</h4>
+                    <div class="relative">
+                        <div id="user-prompt" class="bg-dark-900 rounded-md p-3 text-sm whitespace-pre-wrap border border-dark-700"></div>
+                        <button id="copy-user-prompt" class="copy-btn absolute top-2 right-2 bg-dark-700 text-dark-200 p-1 rounded-md text-xs">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div>
+                    <h4 class="text-sm font-medium text-dark-300 mb-2">Full Prompt with Configuration</h4>
+                    <div class="relative">
+                        <div id="full-concatenated-prompt" class="bg-dark-900 rounded-md p-3 text-sm whitespace-pre-wrap border border-dark-700 max-h-60 overflow-y-auto"></div>
+                        <button id="copy-full-prompt" class="copy-btn absolute top-2 right-2 bg-dark-700 text-dark-200 p-1 rounded-md text-xs">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div>
+                    <h4 class="text-sm font-medium text-dark-300 mb-2">Full JSON Payload</h4>
+                    <div class="relative">
+                        <div id="full-payload" class="bg-dark-900 rounded-md p-3 text-sm whitespace-pre-wrap border border-dark-700 max-h-60 overflow-y-auto"></div>
+                        <button id="copy-full-payload" class="copy-btn absolute top-2 right-2 bg-dark-700 text-dark-200 p-1 rounded-md text-xs">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-6 pt-4 border-t border-dark-700 flex justify-end">
+                <button id="close-prompt-details-btn" class="px-4 py-2 rounded-md bg-dark-700 hover:bg-dark-600 text-white">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Configuration Constants
+        const STORAGE_KEY = 'expertModelConfig';
+        
+        // DOM Elements
+        const messageContainer = document.getElementById('message-container');
+        const promptInput = document.getElementById('prompt-input');
+        const sendBtn = document.getElementById('send-btn');
+        const configBtn = document.getElementById('config-btn');
+        const configModal = document.getElementById('config-modal');
+        const closeConfigBtn = document.getElementById('close-config');
+        const currentConfigDisplay = document.getElementById('current-config');
+        const configNotification = document.getElementById('config-notification');
+        const errorNotification = document.getElementById('error-notification');
+        const errorMessage = document.getElementById('error-message');
+        const configStatus = document.getElementById('config-status');
+        const pipelineTypeDisplay = document.getElementById('pipeline-type');
+        const modelSuggestionsDisplay = document.getElementById('model-suggestions');
+        const validationStatus = document.getElementById('validation-status');
+        const validationErrors = document.getElementById('validation-errors');
+        
+        // Prompt details modal elements
+        const promptDetailsModal = document.getElementById('prompt-details-modal');
+        const closePromptDetailsBtn = document.getElementById('close-prompt-details');
+        const closePromptDetailsBtnFooter = document.getElementById('close-prompt-details-btn');
+        const systemPromptDisplay = document.getElementById('system-prompt');
+        const userPromptDisplay = document.getElementById('user-prompt');
+        const fullConcatenatedPromptDisplay = document.getElementById('full-concatenated-prompt');
+        const fullPayloadDisplay = document.getElementById('full-payload');
+        const copySystemPromptBtn = document.getElementById('copy-system-prompt');
+        const copyUserPromptBtn = document.getElementById('copy-user-prompt');
+        const copyFullPromptBtn = document.getElementById('copy-full-prompt');
+        const copyFullPayloadBtn = document.getElementById('copy-full-payload');
+        
+        // State
+        let currentConfig = null;
+        let lastMessages = [];
+        let lastFullPayload = {};
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            loadConfiguration();
+            setupEventListeners();
+        });
+        
+        // ======================
+        // Configuration Functions
+        // ======================
+        
+        /**
+         * Loads and validates configuration from localStorage
+         */
+        function loadConfiguration() {
+            try {
+                const savedConfig = localStorage.getItem(STORAGE_KEY);
+                if (!savedConfig) {
+                    configStatus.textContent = "No expert configuration loaded - using default settings";
+                    return;
+                }
+                
+                const config = JSON.parse(savedConfig);
+                const validation = validateConfig(config);
+                
+                if (validation.isValid) {
+                    currentConfig = config;
+                    updateConfigUI();
+                    showNotification("Expert configuration loaded successfully!");
+                    
+                    // Update status with model count
+                    const activeCount = config.models.filter(m => m.active).length;
+                    configStatus.textContent = `Using ${config.mode} mode with ${activeCount} active models`;
+                    
+                    // Show notification if coming from orchestrator
+                    const urlParams = new URLSearchParams(window.location.search);
+                    if (urlParams.get('configSaved') === 'true') {
+                        showNotification("Configuration saved successfully!");
+                    }
+                } else {
+                    showError(`Configuration invalid: ${validation.errors[0]}`);
+                    configStatus.textContent = "Invalid configuration - using default settings";
+                }
+            } catch (e) {
+                console.error("Error loading config:", e);
+                showError("Error loading configuration");
+                configStatus.textContent = "Error loading configuration - using default settings";
+            }
+        }
+        
+        /**
+         * Validates a configuration object
+         * @param {Object} config - The configuration to validate
+         * @returns {Object} - Validation result
+         */
+        function validateConfig(config) {
+            const result = {
+                isValid: false,
+                errors: [],
+                warnings: []
+            };
+            
+            // Basic validation
+            if (!config) {
+                result.errors.push("No configuration provided");
+                return result;
+            }
+            
+            // Check required fields
+            const requiredFields = ['mode', 'models', 'pipelineType', 'configString'];
+            const missingFields = requiredFields.filter(field => !(field in config));
+            
+            if (missingFields.length > 0) {
+                result.errors.push(`Missing required fields: ${missingFields.join(', ')}`);
+                return result;
+            }
+            
+            // Validate mode
+            if (!['CoE', 'Sparse'].includes(config.mode)) {
+                result.errors.push(`Invalid mode: ${config.mode}`);
+            }
+            
+            // Validate pipeline type
+            if (!['forced', 'dynamic'].includes(config.pipelineType)) {
+                result.errors.push(`Invalid pipeline type: ${config.pipelineType}`);
+            }
+            
+            // Validate models array
+            if (!Array.isArray(config.models)) {
+                result.errors.push("Models must be an array");
+            } else if (config.models.length === 0) {
+                result.warnings.push("No models configured");
+            }
+            
+            // Validate config string
+            if (typeof config.configString !== 'string' || config.configString.trim() === '') {
+                result.errors.push("Invalid configuration string");
+            } else {
+                // Additional string validation
+                const requiredSections = ['Mode:', 'Pipeline Type:', 'Model Suggestions:'];
+                const missingSections = requiredSections.filter(section => 
+                    !config.configString.includes(section)
+                );
+                
+                if (missingSections.length > 0) {
+                    result.errors.push(`Missing sections in config string: ${missingSections.join(', ')}`);
+                }
+            }
+            
+            // Determine final validity
+            result.isValid = result.errors.length === 0;
+            return result;
+        }
+        
+        /**
+         * Updates the UI with the current configuration
+         */
+        function updateConfigUI() {
+            if (!currentConfig) return;
+            
+            // Update modal display
+            currentConfigDisplay.textContent = currentConfig.configString || "No configuration details available";
+            pipelineTypeDisplay.textContent = currentConfig.pipelineType === 'forced' 
+                ? "Forced (use all active models)" 
+                : "Dynamic (select based on task)";
+            modelSuggestionsDisplay.textContent = currentConfig.modelSuggestion 
+                ? "Enabled" 
+                : "Disabled";
+            
+            // Update validation status
+            const validation = validateConfig(currentConfig);
+            if (validation.isValid) {
+                validationStatus.innerHTML = '<i class="fas fa-check-circle mr-1"></i> Valid';
+                validationStatus.className = 'inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-900 text-green-300';
+                validationErrors.classList.add('hidden');
+            } else {
+                validationStatus.innerHTML = '<i class="fas fa-exclamation-circle mr-1"></i> Invalid';
+                validationStatus.className = 'inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-900 text-red-300';
+                validationErrors.textContent = validation.errors.join(', ');
+                validationErrors.classList.remove('hidden');
+            }
+        }
+        
+        // ======================
+        // UI Functions
+        // ======================
+        
+        function showNotification(message) {
+            const notification = document.getElementById('config-notification');
+            notification.querySelector('span').textContent = message;
+            notification.classList.remove('hidden');
+            setTimeout(() => notification.classList.add('hidden'), 3000);
+        }
+        
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorNotification.classList.remove('hidden');
+            setTimeout(() => errorNotification.classList.add('hidden'), 3000);
+        }
+        
+        function setupEventListeners() {
+            // Send message
+            sendBtn.addEventListener('click', sendMessage);
+            promptInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                }
+            });
+            
+            // Configuration modal
+            configBtn.addEventListener('click', () => {
+                configModal.classList.remove('hidden');
+                updateConfigUI();
+            });
+            
+            closeConfigBtn.addEventListener('click', () => {
+                configModal.classList.add('hidden');
+            });
+            
+            configModal.addEventListener('click', (e) => {
+                if (e.target === configModal) {
+                    configModal.classList.add('hidden');
+                }
+            });
+            
+            // Prompt details modal
+            closePromptDetailsBtn.addEventListener('click', () => {
+                promptDetailsModal.classList.add('hidden');
+            });
+            
+            closePromptDetailsBtnFooter.addEventListener('click', () => {
+                promptDetailsModal.classList.add('hidden');
+            });
+            
+            promptDetailsModal.addEventListener('click', (e) => {
+                if (e.target === promptDetailsModal) {
+                    promptDetailsModal.classList.add('hidden');
+                }
+            });
+            
+            // Copy buttons
+            copySystemPromptBtn.addEventListener('click', () => copyToClipboard(systemPromptDisplay.textContent, copySystemPromptBtn));
+            copyUserPromptBtn.addEventListener('click', () => copyToClipboard(userPromptDisplay.textContent, copyUserPromptBtn));
+            copyFullPromptBtn.addEventListener('click', () => copyToClipboard(fullConcatenatedPromptDisplay.textContent, copyFullPromptBtn));
+            copyFullPayloadBtn.addEventListener('click', () => copyToClipboard(fullPayloadDisplay.textContent, copyFullPayloadBtn));
+        }
+        
+        function copyToClipboard(text, button) {
+            navigator.clipboard.writeText(text).then(() => {
+                // Visual feedback
+                button.innerHTML = '<i class="fas fa-check"></i>';
+                button.classList.add('copied');
+                
+                setTimeout(() => {
+                    button.innerHTML = '<i class="fas fa-copy"></i>';
+                    button.classList.remove('copied');
+                }, 2000);
+            }).catch(err => {
+                console.error('Failed to copy text: ', err);
+                showError('Failed to copy text to clipboard');
+            });
+        }
+        
+        // ======================
+        // Chat Functions
+        // ======================
+        
+        function sendMessage() {
+            const prompt = promptInput.value.trim();
+            if (!prompt) return;
+            
+            // Prepare the full prompt with configuration
+            let fullPrompt = prompt;
+            let messages = [];
+            let systemMessage = "";
+            
+            if (currentConfig) {
+                // Create system message with configuration
+                systemMessage = `=== EXPERT MODEL CONFIGURATION ===\n` +
+                              `${currentConfig.configString}\n\n` +
+                              `Pipeline Type: ${currentConfig.pipelineType}\n` +
+                              `Model Suggestions: ${currentConfig.modelSuggestion ? 'Enabled' : 'Disabled'}`;
+                
+                // Create the full concatenated prompt
+                fullPrompt = `${systemMessage}\n\n=== USER PROMPT ===\n${prompt}`;
+                
+                // Add system message to messages array
+                messages.push({
+                    role: "system",
+                    content: systemMessage
+                });
+            }
+            
+            // Add user message to chat (show only original prompt)
+            addMessage('user', prompt);
+            promptInput.value = '';
+            
+            // Add user message to messages array
+            messages.push({
+                role: "user",
+                content: prompt
+            });
+            
+            // Store the messages and full payload for details view
+            lastMessages = messages;
+            lastFullPayload = {
+                messages: messages,
+                config: currentConfig || { mode: "default" },
+                timestamp: new Date().toISOString(),
+                fullPrompt: fullPrompt  // Store the concatenated version
+            };
+            
+            // Add "View Full Prompt" button to user message
+            const lastUserMessage = messageContainer.lastElementChild;
+            if (lastUserMessage) {
+                const messageContentDiv = lastUserMessage.querySelector('.pl-11, .pr-11');
+                if (messageContentDiv) {
+                    const viewPromptBtn = document.createElement('button');
+                    viewPromptBtn.className = 'mt-2 text-xs text-primary-light hover:text-primary-dark flex items-center gap-1';
+                    viewPromptBtn.innerHTML = '<i class="fas fa-code"></i> View Full Prompt';
+                    viewPromptBtn.addEventListener('click', () => showPromptDetails());
+                    messageContentDiv.appendChild(viewPromptBtn);
+                }
+            }
+            
+            // Simulate AI response (using the fullPrompt that includes config)
+            setTimeout(() => {
+                const response = generateAIResponse(fullPrompt, currentConfig);
+                addMessage('assistant', response);
+            }, 1000);
+        }
+        
+        function showPromptDetails() {
+            // Update the modal content
+            systemPromptDisplay.textContent = lastMessages.find(m => m.role === "system")?.content || "No system message";
+            userPromptDisplay.textContent = lastMessages.find(m => m.role === "user")?.content || "No user message";
+            fullConcatenatedPromptDisplay.textContent = lastFullPayload.fullPrompt || "No concatenated prompt available";
+            fullPayloadDisplay.textContent = JSON.stringify(lastFullPayload, null, 2);
+            
+            // Show the modal
+            promptDetailsModal.classList.remove('hidden');
+        }
+        
+        function addMessage(role, content) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `flex flex-col space-y-2 ${role === 'user' ? 'items-end' : ''}`;
+            
+            const isConfigPrompt = content.includes('=== EXPERT MODEL CONFIGURATION ===');
+            
+            messageDiv.innerHTML = `
+                <div class="flex items-center gap-3 ${role === 'user' ? 'flex-row-reverse' : ''}">
+                    <div class="w-8 h-8 rounded-full ${role === 'user' ? 'bg-primary-dark' : 'bg-dark-700'} flex items-center justify-center shrink-0">
+                        ${role === 'user' ? '<i class="fas fa-user text-white"></i>' : '<i class="fas fa-robot text-primary-light"></i>'}
+                    </div>
+                    <div class="font-medium">${role === 'user' ? 'You' : 'NeuroMind AI'}</div>
+                </div>
+                <div class="${role === 'user' ? 'pr-11' : 'pl-11'}">
+                    <div class="${role === 'user' ? 'bg-primary-dark text-white' : isConfigPrompt ? 'config-prompt bg-dark-800' : 'bg-dark-800'} rounded-lg p-4 ${role === 'assistant' ? 'model-response' : ''}">
+                        ${content.split('\n').join('<br>')}
+                    </div>
+                </div>
+            `;
+            
+            messageContainer.appendChild(messageDiv);
+            messageContainer.scrollTop = messageContainer.scrollHeight;
+        }
+        
+        function generateAIResponse(prompt, config) {
+            let response = "";
+            
+            if (config) {
+                response += `=== CURRENT CONFIGURATION ===\n`;
+                response += `Mode: ${config.mode}\n`;
+                response += `Active Models: ${config.models.filter(m => m.active).length}\n`;
+                response += `Pipeline: ${config.pipelineType === 'forced' ? 'Forced (use all models)' : 'Dynamic (select based on task)'}\n`;
+                response += `Suggestions: ${config.modelSuggestion ? 'Enabled' : 'Disabled'}\n\n`;
+                
+                if (config.mode === 'CoE') {
+                    const activeModels = config.models.filter(m => m.active);
+                    response += `Processing Chain:\n`;
+                    activeModels.forEach((model, index) => {
+                        response += `${index + 1}. ${model.name} (${model.type})\n`;
+                    });
+                } else {
+                    response += `Active Models:\n`;
+                    config.models.filter(m => m.active).forEach(model => {
+                        response += `- ${model.name} (${model.type})\n`;
+                    });
+                }
+                
+                response += "\n";
+            }
+            
+            response += `=== RESPONSE ===\n`;
+            response += `Analyzing your query: "${prompt.substring(0, 50)}${prompt.length > 50 ? '...' : ''}"\n\n`;
+            
+            if (config) {
+                response += `Using ${config.mode} mode with ${config.models.filter(m => m.active).length} expert models.\n`;
+                response += `This ${config.pipelineType === 'forced' ? 'requires' : 'may use'} all active models for processing.\n\n`;
+            }
+            
+            response += "This is a simulated response. In a real implementation, the AI would process your query using the configured expert models.";
+            
+            return response;
+        }
+    </script>
+</body>
+</html>

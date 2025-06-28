@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Expert Model Orchestrator</title>
+    <!-- Tailwind CSS CDN with custom configuration -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            light: '#93C5FD',
+                            DEFAULT: '#3B82F6',
+                            dark: '#1D4ED8'
+                        },
+                        secondary: {
+                            light: '#6EE7B7',
+                            DEFAULT: '#10B981',
+                            dark: '#047857'
+                        },
+                        accent: {
+                            light: '#FCD34D',
+                            DEFAULT: '#F59E0B',
+                            dark: '#B45309'
+                        }
+                    },
+                    boxShadow: {
+                        '3d': '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+                        '3d-primary': '0 10px 25px -5px rgba(59, 130, 246, 0.3), 0 10px 10px -5px rgba(59, 130, 246, 0.1)',
+                        '3d-secondary': '0 10px 25px -5px rgba(16, 185, 129, 0.3), 0 10px 10px -5px rgba(16, 185, 129, 0.1)'
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Google Fonts - Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: radial-gradient(circle at 10% 20%, rgba(248, 250, 252, 0.9) 0%, rgba(241, 245, 249, 0.9) 90%);
+            min-height: 100vh;
+        }
+        
+        .drag-over-coe {
+            border: 3px dashed #1D4ED8 !important;
+            background-color: rgba(29, 78, 216, 0.05) !important;
+            transform: scale(1.05);
+        }
+        
+        .node-glow-primary {
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.5);
+        }
+        
+        .node-glow-secondary {
+            box-shadow: 0 0 15px rgba(16, 185, 129, 0.5);
+        }
+        
+        .tooltip .tooltip-text {
+            visibility: hidden;
+            width: 120px;
+            background-color: #1F2937;
+            color: #F9FAFB;
+            text-align: center;
+            border-radius: 6px;
+            padding: 5px;
+            position: absolute;
+            z-index: 1;
+            bottom: 125%;
+            left: 50%;
+            transform: translateX(-50%);
+            opacity: 0;
+            transition: opacity 0.3s;
+            font-size: 0.75rem;
+        }
+        
+        .tooltip:hover .tooltip-text {
+            visibility: visible;
+            opacity: 1;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-4 md:p-8 antialiased">
+    <!-- Header -->
+    <header class="w-full max-w-6xl mb-8 text-center">
+        <h1 class="text-3xl md:text-4xl font-bold text-gray-800 mb-2">
+            <span class="bg-clip-text text-transparent bg-gradient-to-r from-primary-dark to-secondary-dark">
+                Expert Model Orchestrator
+            </span>
+        </h1>
+        <p class="text-gray-600 text-lg max-w-3xl mx-auto">
+            Configure AI model workflows for chat applications
+        </p>
+    </header>
+
+    <!-- Main Content -->
+    <main class="w-full max-w-6xl bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200">
+        <!-- Mode Tabs -->
+        <div class="flex border-b border-gray-200">
+            <button id="coe-mode-button" class="flex-1 py-4 px-6 font-semibold text-primary-dark bg-primary-light/20 border-b-2 border-primary-dark flex items-center justify-center gap-2">
+                <i class="fas fa-link"></i>
+                <span>Chained Experts (CoE)</span>
+            </button>
+            <button id="sparse-mode-button" class="flex-1 py-4 px-6 font-semibold text-gray-500 hover:text-secondary-dark flex items-center justify-center gap-2">
+                <i class="fas fa-project-diagram"></i>
+                <span>Sparse Graph</span>
+            </button>
+        </div>
+
+        <!-- Content Area -->
+        <div class="p-6 md:p-8">
+            <!-- CoE Mode Section -->
+            <div id="coe-section" class="space-y-6">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    <div>
+                        <h2 class="text-2xl font-bold text-gray-800 mb-1">Chained Experts Mode</h2>
+                        <p class="text-gray-600">Models process inputs sequentially in the specified order</p>
+                    </div>
+                    <div class="flex gap-2 flex-wrap">
+                        <button id="save-coe-config" class="px-4 py-2 bg-primary hover:bg-primary-dark text-white rounded-lg flex items-center gap-2 text-sm">
+                            <i class="fas fa-save"></i>
+                            Save Configuration
+                        </button>
+                        <button id="get-coe-order" class="px-4 py-2 bg-accent hover:bg-accent-dark text-white rounded-lg flex items-center gap-2 text-sm">
+                            <i class="fas fa-list-ol"></i>
+                            Get Current Order
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Pipeline Type Selection -->
+                <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                    <h3 class="font-medium text-gray-700 mb-3 flex items-center gap-2">
+                        <i class="fas fa-cog text-primary"></i>
+                        Pipeline Configuration
+                    </h3>
+                    <div class="flex flex-col md:flex-row gap-4">
+                        <div class="flex-1">
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="pipeline-type" value="forced" class="form-radio text-primary" checked>
+                                <span class="font-medium">Forced Pipeline</span>
+                            </label>
+                            <p class="text-xs text-gray-500 mt-1 ml-6">All models in the chain will be used for every query</p>
+                        </div>
+                        <div class="flex-1">
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="pipeline-type" value="dynamic" class="form-radio text-primary">
+                                <span class="font-medium">Dynamic Selection</span>
+                            </label>
+                            <p class="text-xs text-gray-500 mt-1 ml-6">System will determine which models to use based on query</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Model Suggestion Toggle -->
+                <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" id="model-suggestion" class="form-checkbox text-primary">
+                        <span class="font-medium">Enable Model Suggestions</span>
+                    </label>
+                    <p class="text-xs text-gray-500 mt-1 ml-6">System will suggest which models might be most appropriate for the query</p>
+                </div>
+                
+                <!-- CoE Nodes Container -->
+                <div id="coe-nodes-container" class="p-4 bg-gray-50 rounded-lg border border-gray-200 min-h-[200px] flex flex-wrap items-center justify-center gap-4 md:gap-8">
+                    <!-- Nodes will be inserted here -->
+                    <div class="text-gray-400 text-center py-8">
+                        <i class="fas fa-arrows-alt text-3xl mb-2"></i>
+                        <p>Drag and drop models to create your processing chain</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sparse Mode Section -->
+            <div id="sparse-section" class="space-y-6 hidden">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    <div>
+                        <h2 class="text-2xl font-bold text-gray-800 mb-1">Sparse Graph Mode</h2>
+                        <p class="text-gray-600">Activate models to connect them to the central output</p>
+                    </div>
+                    <div class="flex gap-2 flex-wrap">
+                        <button id="save-sparse-config" class="px-4 py-2 bg-primary hover:bg-primary-dark text-white rounded-lg flex items-center gap-2 text-sm">
+                            <i class="fas fa-save"></i>
+                            Save Configuration
+                        </button>
+                        <button id="get-sparse-order" class="px-4 py-2 bg-accent hover:bg-accent-dark text-white rounded-lg flex items-center gap-2 text-sm">
+                            <i class="fas fa-list-ol"></i>
+                            Get Current Order
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Sparse Graph Visualization -->
+                <div id="sparse-graph-container" class="relative bg-gray-50 rounded-lg border border-gray-200 min-h-[400px] overflow-hidden">
+                    <svg id="sparse-lines-svg" class="absolute top-0 left-0 w-full h-full pointer-events-none z-10">
+                        <defs>
+                            <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                                <polygon points="0 0, 10 3.5, 0 7" fill="#10B981" />
+                            </marker>
+                        </defs>
+                    </svg>
+                    
+                    <!-- Output Node -->
+                    <div id="output-node" class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-20 bg-white p-6 rounded-full shadow-xl border-4 border-secondary flex flex-col items-center justify-center text-center">
+                        <div class="bg-secondary/10 rounded-full p-3 mb-2">
+                            <i class="fas fa-sign-out-alt text-2xl text-secondary"></i>
+                        </div>
+                        <p class="font-bold text-secondary-dark">Output</p>
+                    </div>
+                    
+                    <!-- Sparse Model Nodes Container -->
+                    <div id="sparse-nodes-wrapper" class="absolute inset-0">
+                        <!-- Nodes will be positioned here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Chat Button -->
+    <button id="use-in-chat" class="fixed bottom-4 right-4 bg-primary hover:bg-primary-dark text-white px-6 py-3 rounded-full shadow-lg flex items-center gap-2 z-50">
+        <i class="fas fa-comments"></i>
+        <span>Use in Chat</span>
+    </button>
+
+    <!-- Confirmation Toast -->
+    <div id="confirmation-toast" class="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-green-600 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-3 translate-y-10 opacity-0 transition-all duration-300 z-50">
+        <i class="fas fa-check-circle"></i>
+        <span id="toast-message">Configuration saved successfully!</span>
+    </div>
+
+    <script>
+        // Application State
+        let models = [
+            { id: 'm1', name: 'Text Generator', active: true, type: 'text', description: 'Generates human-like text' },
+            { id: 'm2', name: 'Image Classifier', active: true, type: 'vision', description: 'Classifies images into categories' },
+            { id: 'm3', name: 'Sentiment Analyzer', active: false, type: 'text', description: 'Analyzes text sentiment' },
+            { id: 'm4', name: 'Speech Recognizer', active: true, type: 'audio', description: 'Converts speech to text' },
+            { id: 'm5', name: 'Object Detector', active: false, type: 'vision', description: 'Detects objects in images' },
+            { id: 'm6', name: 'Multimodal QA', active: false, type: 'multimodal', description: 'Answers questions about text and images' },
+        ];
+        
+        let selectedMode = 'CoE';
+        let dragItemNode = null;
+        let dragItemIndex = null;
+        let nodePositions = {};
+        
+        // DOM Elements
+        const coeModeButton = document.getElementById('coe-mode-button');
+        const sparseModeButton = document.getElementById('sparse-mode-button');
+        const coeSection = document.getElementById('coe-section');
+        const sparseSection = document.getElementById('sparse-section');
+        const coeNodesContainer = document.getElementById('coe-nodes-container');
+        const sparseGraphContainer = document.getElementById('sparse-graph-container');
+        const sparseNodesWrapper = document.getElementById('sparse-nodes-wrapper');
+        const sparseLinesSvg = document.getElementById('sparse-lines-svg');
+        const outputNode = document.getElementById('output-node');
+        const saveCoeConfigBtn = document.getElementById('save-coe-config');
+        const saveSparseConfigBtn = document.getElementById('save-sparse-config');
+        const getCoeOrderBtn = document.getElementById('get-coe-order');
+        const getSparseOrderBtn = document.getElementById('get-sparse-order');
+        const useInChatBtn = document.getElementById('use-in-chat');
+        const confirmationToast = document.getElementById('confirmation-toast');
+        const toastMessage = document.getElementById('toast-message');
+        const modelSuggestion = document.getElementById('model-suggestion');
+        const pipelineTypeRadios = document.querySelectorAll('input[name="pipeline-type"]');
+
+        // Storage Keys
+        const STORAGE_KEY = 'expertModelConfig';
+        const CHAT_PAGE_URL = '/chat'; // Update with your actual chat page URL
+
+        // Helper Functions
+        function getModelIcon(type) {
+            switch(type) {
+                case 'text': return 'fa-font';
+                case 'vision': return 'fa-image';
+                case 'audio': return 'fa-microphone';
+                case 'multimodal': return 'fa-shapes';
+                default: return 'fa-cube';
+            }
+        }
+
+        function getModelColor(type) {
+            switch(type) {
+                case 'text': return 'text-blue-500';
+                case 'vision': return 'text-purple-500';
+                case 'audio': return 'text-pink-500';
+                case 'multimodal': return 'text-indigo-500';
+                default: return 'text-gray-500';
+            }
+        }
+
+        function showToast(message, type = 'success') {
+            toastMessage.textContent = message;
+            confirmationToast.classList.remove('bg-red-600', 'translate-y-10', 'opacity-0');
+            
+            if (type === 'error') {
+                confirmationToast.classList.add('bg-red-600');
+            } else {
+                confirmationToast.classList.add('bg-green-600');
+            }
+            
+            confirmationToast.classList.remove('translate-y-10', 'opacity-0');
+            confirmationToast.classList.add('translate-y-0', 'opacity-100');
+            
+            setTimeout(() => {
+                confirmationToast.classList.remove('translate-y-0', 'opacity-100');
+                confirmationToast.classList.add('translate-y-10', 'opacity-0');
+            }, 3000);
+        }
+
+        // Mode Switching
+        function switchMode(mode) {
+            selectedMode = mode;
+            
+            coeModeButton.classList.remove('text-gray-500');
+            sparseModeButton.classList.remove('text-gray-500');
+            
+            if (mode === 'CoE') {
+                coeSection.classList.remove('hidden');
+                sparseSection.classList.add('hidden');
+                
+                coeModeButton.classList.add('text-primary-dark', 'bg-primary-light/20', 'border-b-2', 'border-primary-dark');
+                sparseModeButton.classList.remove('text-secondary-dark', 'bg-secondary-light/20', 'border-b-2', 'border-secondary-dark');
+                
+                renderCoE();
+            } else {
+                sparseSection.classList.remove('hidden');
+                coeSection.classList.add('hidden');
+                
+                sparseModeButton.classList.add('text-secondary-dark', 'bg-secondary-light/20', 'border-b-2', 'border-secondary-dark');
+                coeModeButton.classList.remove('text-primary-dark', 'bg-primary-light/20', 'border-b-2', 'border-primary-dark');
+                
+                renderSparse();
+            }
+        }
+
+        // CoE Mode Functions
+        function renderCoE() {
+            coeNodesContainer.innerHTML = '';
+            const activeModels = models.filter(m => m.active);
+            
+            if (activeModels.length === 0) {
+                coeNodesContainer.innerHTML = `
+                    <div class="text-center py-8 w-full">
+                        <i class="fas fa-info-circle text-3xl text-gray-300 mb-2"></i>
+                        <p class="text-gray-400">No active models. Add or activate models to create a chain.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            activeModels.forEach((model, index) => {
+                const nodeDiv = document.createElement('div');
+                nodeDiv.id = `coe-node-${model.id}`;
+                nodeDiv.dataset.id = model.id;
+                nodeDiv.dataset.index = index;
+                
+                nodeDiv.className = `
+                    model-node bg-white p-4 rounded-full shadow-md w-24 h-24 md:w-28 md:h-28 
+                    flex flex-col items-center justify-center text-center border-3 border-primary 
+                    cursor-grab hover:shadow-lg hover:node-glow-primary active:cursor-grabbing
+                    transition-all duration-300 ease-in-out relative
+                `;
+                nodeDiv.draggable = true;
+                
+                const iconClass = getModelIcon(model.type);
+                const iconColor = getModelColor(model.type);
+                
+                nodeDiv.innerHTML = `
+                    <div class="absolute top-1 right-1 text-xs font-bold bg-primary text-white rounded-full w-5 h-5 flex items-center justify-center">
+                        ${index + 1}
+                    </div>
+                    <i class="fas ${iconClass} ${iconColor} text-xl mb-1"></i>
+                    <p class="text-xs md:text-sm font-medium text-gray-800 leading-tight line-clamp-2">
+                        ${model.name}
+                    </p>
+                `;
+
+                // Drag and Drop Events
+                nodeDiv.addEventListener('dragstart', handleDragStart);
+                nodeDiv.addEventListener('dragenter', handleDragEnter);
+                nodeDiv.addEventListener('dragleave', handleDragLeave);
+                nodeDiv.addEventListener('dragover', handleDragOver);
+                nodeDiv.addEventListener('drop', handleDrop);
+                nodeDiv.addEventListener('dragend', handleDragEnd);
+                
+                if (model.description) {
+                    nodeDiv.classList.add('tooltip');
+                    const tooltip = document.createElement('span');
+                    tooltip.className = 'tooltip-text';
+                    tooltip.textContent = model.description;
+                    nodeDiv.appendChild(tooltip);
+                }
+
+                coeNodesContainer.appendChild(nodeDiv);
+
+                // Add arrow if not last model
+                if (index < activeModels.length - 1) {
+                    const arrowDiv = document.createElement('div');
+                    arrowDiv.className = 'flex items-center opacity-70 hover:opacity-100 transition-opacity';
+                    arrowDiv.innerHTML = `
+                        <svg width="40" height="16" viewBox="0 0 40 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M0 8H32" stroke="#3B82F6" stroke-width="2" stroke-linecap="round" stroke-dasharray="4 4" />
+                            <path d="M32 0L40 8L32 16L32 0Z" fill="#3B82F6" />
+                        </svg>
+                    `;
+                    coeNodesContainer.appendChild(arrowDiv);
+                }
+            });
+        }
+
+        // Drag and Drop Handlers
+        function handleDragStart(e) {
+            dragItemNode = this;
+            dragItemIndex = parseInt(this.dataset.index);
+            e.dataTransfer.effectAllowed = "move";
+            this.classList.add('opacity-70', 'border-dashed', 'border-primary-dark', 'scale-90');
+        }
+
+        function handleDragEnter(e) {
+            e.preventDefault();
+            if (this !== dragItemNode) {
+                this.classList.add('drag-over-coe');
+                this.querySelector('p').classList.add('font-bold', 'text-primary-dark');
+            }
+        }
+
+        function handleDragLeave(e) {
+            this.classList.remove('drag-over-coe');
+            this.querySelector('p').classList.remove('font-bold', 'text-primary-dark');
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            this.classList.remove('drag-over-coe');
+            this.querySelector('p').classList.remove('font-bold', 'text-primary-dark');
+
+            if (dragItemNode && dragItemNode !== this) {
+                const droppedAtIndex = parseInt(this.dataset.index);
+                const activeModels = models.filter(m => m.active);
+                const draggedModel = activeModels[dragItemIndex];
+                
+                if (draggedModel) {
+                    const fullModel = models.find(m => m.id === draggedModel.id);
+                    
+                    if (fullModel) {
+                        const newActiveModels = activeModels.filter(m => m.id !== fullModel.id);
+                        newActiveModels.splice(droppedAtIndex, 0, fullModel);
+                        models = [...newActiveModels, ...models.filter(m => !m.active)];
+                        renderCoE();
+                    }
+                }
+            }
+            
+            dragItemNode = null;
+            dragItemIndex = null;
+        }
+
+        function handleDragEnd(e) {
+            this.classList.remove('opacity-70', 'border-dashed', 'border-primary-dark', 'scale-90');
+            dragItemNode = null;
+            dragItemIndex = null;
+        }
+
+        // Sparse Mode Functions
+        function renderSparse() {
+            sparseNodesWrapper.innerHTML = '';
+            const activeModels = models.filter(m => m.active);
+            const positions = calculateCircularPositions(activeModels.length);
+            
+            models.forEach((model, index) => {
+                const nodeDiv = document.createElement('div');
+                nodeDiv.id = `sparse-node-${model.id}`;
+                
+                let positionStyle = '';
+                if (model.active) {
+                    const posIndex = activeModels.findIndex(m => m.id === model.id);
+                    if (posIndex !== -1 && positions[posIndex]) {
+                        positionStyle = `position: absolute; left: ${positions[posIndex].x}px; top: ${positions[posIndex].y}px; transform: translate(-50%, -50%);`;
+                    }
+                } else {
+                    const randomX = 50 + Math.random() * (sparseGraphContainer.offsetWidth - 100);
+                    const randomY = 50 + Math.random() * (sparseGraphContainer.offsetHeight - 100);
+                    positionStyle = `position: absolute; left: ${randomX}px; top: ${randomY}px; transform: translate(-50%, -50%); opacity: 0.7;`;
+                }
+                
+                nodeDiv.setAttribute('style', positionStyle);
+                
+                const iconClass = getModelIcon(model.type);
+                const iconColor = getModelColor(model.type);
+                
+                nodeDiv.className = `
+                    model-node z-20 p-4 rounded-full shadow-md w-20 h-20 md:w-24 md:h-24
+                    flex flex-col items-center justify-center text-center border-2 cursor-pointer
+                    transition-all duration-300 ease-in-out hover:shadow-lg
+                    ${model.active ? 
+                        'border-green-500 bg-green-50 hover:node-glow-secondary' : 
+                        'border-gray-300 bg-gray-100 hover:bg-gray-200'}
+                `;
+                
+                nodeDiv.innerHTML = `
+                    <i class="fas ${iconClass} ${iconColor} text-lg mb-1"></i>
+                    <p class="text-xs font-medium ${model.active ? 'text-green-800' : 'text-gray-600'} leading-tight line-clamp-2">
+                        ${model.name}
+                    </p>
+                    <div class="absolute bottom-1 right-1 w-3 h-3 rounded-full ${model.active ? 'bg-green-500' : 'bg-gray-400'}"></div>
+                `;
+                
+                nodeDiv.addEventListener('click', () => {
+                    const modelIndex = models.findIndex(m => m.id === model.id);
+                    if (modelIndex !== -1) {
+                        models[modelIndex].active = !models[modelIndex].active;
+                        renderSparse();
+                    }
+                });
+                
+                if (model.description) {
+                    nodeDiv.classList.add('tooltip');
+                    const tooltip = document.createElement('span');
+                    tooltip.className = 'tooltip-text';
+                    tooltip.textContent = `${model.description} (${model.type})`;
+                    nodeDiv.appendChild(tooltip);
+                }
+                
+                sparseNodesWrapper.appendChild(nodeDiv);
+            });
+            
+            setTimeout(() => {
+                updateSparseNodePositions();
+            }, 50);
+        }
+
+        function calculateCircularPositions(count) {
+            const radius = Math.min(250, 150 + count * 20);
+            const centerX = sparseGraphContainer.offsetWidth / 2;
+            const centerY = sparseGraphContainer.offsetHeight / 2;
+            const angleStep = (2 * Math.PI) / count;
+            
+            return models.map((model, index) => {
+                if (!model.active) return null;
+                const angle = index * angleStep;
+                return {
+                    x: centerX + radius * Math.cos(angle),
+                    y: centerY + radius * Math.sin(angle)
+                };
+            }).filter(pos => pos !== null);
+        }
+
+        function updateSparseNodePositions() {
+            if (!sparseGraphContainer || !outputNode) return;
+
+            const containerRect = sparseGraphContainer.getBoundingClientRect();
+            const newPositions = {};
+
+            // Output node position
+            const outputRect = outputNode.getBoundingClientRect();
+            newPositions['output'] = {
+                x: outputRect.left - containerRect.left + outputRect.width / 2,
+                y: outputRect.top - containerRect.top + outputRect.height / 2,
+            };
+
+            // Model nodes positions
+            models.forEach(model => {
+                const nodeElement = document.getElementById(`sparse-node-${model.id}`);
+                if (nodeElement) {
+                    const rect = nodeElement.getBoundingClientRect();
+                    newPositions[model.id] = {
+                        x: rect.left - containerRect.left + rect.width / 2,
+                        y: rect.top - containerRect.top + rect.height / 2,
+                    };
+                }
+            });
+            
+            nodePositions = newPositions;
+            drawSparseLines();
+        }
+
+        function drawSparseLines() {
+            sparseLinesSvg.innerHTML = '';
+            models.forEach(model => {
+                if (model.active && nodePositions[model.id] && nodePositions['output']) {
+                    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                    line.setAttribute('x1', nodePositions[model.id].x);
+                    line.setAttribute('y1', nodePositions[model.id].y);
+                    line.setAttribute('x2', nodePositions['output'].x);
+                    line.setAttribute('y2', nodePositions['output'].y);
+                    line.setAttribute('stroke', '#10B981');
+                    line.setAttribute('stroke-width', '2');
+                    line.setAttribute('stroke-dasharray', '5, 3');
+                    line.setAttribute('marker-end', 'url(#arrowhead)');
+                    sparseLinesSvg.appendChild(line);
+                }
+            });
+        }
+
+        // Configuration Management
+        function saveConfigurationToStorage() {
+            const pipelineType = document.querySelector('input[name="pipeline-type"]:checked').value;
+            const suggestModels = document.getElementById('model-suggestion').checked;
+            
+            const config = {
+                mode: selectedMode,
+                models: models,
+                pipelineType: pipelineType,
+                modelSuggestion: suggestModels,
+                timestamp: new Date().toISOString(),
+                configString: generateConfigString(pipelineType, suggestModels)
+            };
+            
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+            console.log('Configuration saved:', config);
+            showToast("Configuration saved locally");
+            
+            // Return the config string for immediate use if needed
+            return config.configString;
+        }
+
+        function generateConfigString(pipelineType, suggestModels) {
+            let configString = `Mode: ${selectedMode}\n`;
+            configString += `Pipeline Type: ${pipelineType === 'forced' ? 'Forced (use all selected activtive models)' : 'Dynamic (select based on task)'}\n`;
+            configString += `Model Suggestions: ${suggestModels ? 'Enabled' : 'Disabled'}\n\n`;
+            
+            if (selectedMode === 'CoE') {
+                const activeModels = models.filter(m => m.active);
+                configString += `Model Chain Order:\n`;
+                activeModels.forEach((model, index) => {
+                    configString += `${index + 1}. ${model.name} (${model.type})\n`;
+                });
+            } else {
+                const activeModels = models.filter(m => m.active);
+                configString += `Active Models (${activeModels.length}):\n`;
+                activeModels.forEach(model => {
+                    configString += `- ${model.name} (${model.type})\n`;
+                });
+            }
+            
+            return configString;
+        }
+
+        function getCurrentOrder() {
+            const pipelineType = document.querySelector('input[name="pipeline-type"]:checked').value;
+            const suggestModels = document.getElementById('model-suggestion').checked;
+            return generateConfigString(pipelineType, suggestModels);
+        }
+
+        // Event Listeners
+        coeModeButton.addEventListener('click', () => switchMode('CoE'));
+        sparseModeButton.addEventListener('click', () => switchMode('Sparse'));
+        
+        saveCoeConfigBtn.addEventListener('click', saveConfigurationToStorage);
+        saveSparseConfigBtn.addEventListener('click', saveConfigurationToStorage);
+        
+        getCoeOrderBtn.addEventListener('click', () => {
+            const order = getCurrentOrder();
+            alert(order);
+        });
+        
+        getSparseOrderBtn.addEventListener('click', () => {
+            const order = getCurrentOrder();
+            alert(order);
+        });
+        
+        useInChatBtn.addEventListener('click', () => {
+            const configString = saveConfigurationToStorage();
+            // In a real app, you would navigate to your chat page
+            // window.location.href = CHAT_PAGE_URL;
+            alert("Configuration saved! Ready for chat.\n\n" + configString);
+        });
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            switchMode(selectedMode);
+            
+            // Load any saved configuration
+            const savedConfig = localStorage.getItem(STORAGE_KEY);
+            if (savedConfig) {
+                try {
+                    const config = JSON.parse(savedConfig);
+                    if (config.models) models = config.models;
+                    if (config.pipelineType) {
+                        document.querySelector(`input[name="pipeline-type"][value="${config.pipelineType}"]`).checked = true;
+                    }
+                    if (config.modelSuggestion !== undefined) {
+                        document.getElementById('model-suggestion').checked = config.modelSuggestion;
+                    }
+                    showToast("Loaded previous configuration");
+                } catch (e) {
+                    console.error("Error loading config:", e);
+                }
+            }
+        });
+
+        // Window resize handler
+        window.addEventListener('resize', () => {
+            if (selectedMode === 'Sparse') {
+                renderSparse();
+            }
+        });
+    </script>
+</body>
+</html>
